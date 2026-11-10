@@ -33,48 +33,67 @@ ARCHIVO_HISTORIAL = "historial_movimientos.xlsx"
 
 
 def cargar_inventario():
+  colores_reales = [
+      "Negro",
+      "Blanco",
+      "Beige",
+      "Hueso",
+      "Marrón Oscuro",
+      "Marrón Claro (Caramelo)",
+      "Azul Marino",
+      "Gris Oscuro (Plomo)",
+      "Gris Claro",
+      "Vino / Bordó",
+      "Rojo",
+      "Verde Militar",
+      "Azul Rey",
+      "Amarillo",
+      "Naranja",
+      "Rosa / Rosado",
+      "Turquesa",
+      "Lila / Morado",
+      "Melón",
+      "Camel",
+  ]
+
   if os.path.exists(ARCHIVO_INVENTARIO):
-    df = pd.read_excel(ARCHIVO_INVENTARIO)
-    df["Rollos"] = df["Rollos"].astype(float)
-    df["Metros Stock"] = df["Metros Stock"].astype(float)
-    df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
-    return df
-  else:
-    colores_reales = [
-        "Negro",
-        "Blanco",
-        "Beige",
-        "Hueso",
-        "Marrón Oscuro",
-        "Marrón Claro (Caramelo)",
-        "Azul Marino",
-        "Gris Oscuro (Plomo)",
-        "Gris Claro",
-        "Vino / Bordó",
-        "Rojo",
-        "Verde Militar",
-        "Azul Rey",
-        "Amarillo",
-        "Naranja",
-        "Rosa / Rosado",
-        "Turquesa",
-        "Lila / Morado",
-        "Melón",
-        "Camel",
-    ]
-    datos = []
-    for i, color in enumerate(colores_reales, start=1):
-      datos.append({
-          "ID": i,
-          "Tipo de Tela": "Cuerina",
-          "Color": color,
-          "Rollos": 1.0,
-          "Metros Stock": 50.0,
-          "Precio (Bs)": 30.0,
-      })
-    df = pd.DataFrame(datos)
-    df.to_excel(ARCHIVO_INVENTARIO, index=False)
-    return df
+    try:
+      df = pd.read_excel(ARCHIVO_INVENTARIO)
+      # Verificar que existan las columnas obligatorias, si no, regenerar
+      columnas_necesarias = [
+          "ID",
+          "Tipo de Tela",
+          "Color",
+          "Rollos",
+          "Metros Stock",
+          "Precio (Bs)",
+      ]
+      for col in columnas_necesarias:
+        if col not in df.columns:
+          raise ValueError(f"Falta la columna {col}")
+
+      df["Rollos"] = df["Rollos"].astype(float)
+      df["Metros Stock"] = df["Metros Stock"].astype(float)
+      df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
+      return df
+    except Exception:
+      # Si el Excel antiguo está corrupto o le faltan columnas, lo recreamos limpio
+      pass
+
+  # Crear inventario inicial por defecto
+  datos = []
+  for i, color in enumerate(colores_reales, start=1):
+    datos.append({
+        "ID": i,
+        "Tipo de Tela": "Cuerina",
+        "Color": color,
+        "Rollos": 1.0,
+        "Metros Stock": 50.0,
+        "Precio (Bs)": 30.0,
+    })
+  df = pd.DataFrame(datos)
+  df.to_excel(ARCHIVO_INVENTARIO, index=False)
+  return df
 
 
 def guardar_inventario(df):
@@ -83,18 +102,21 @@ def guardar_inventario(df):
 
 def cargar_historial():
   if os.path.exists(ARCHIVO_HISTORIAL):
-    return pd.read_excel(ARCHIVO_HISTORIAL)
-  else:
-    df = pd.DataFrame(columns=[
-        "Fecha",
-        "Hora",
-        "Tela / Color",
-        "Acción",
-        "Cantidad (Rollos)",
-        "Quién retiró",
-    ])
-    df.to_excel(ARCHIVO_HISTORIAL, index=False)
-    return df
+    try:
+      return pd.read_excel(ARCHIVO_HISTORIAL)
+    except Exception:
+      pass
+
+  df = pd.DataFrame(columns=[
+      "Fecha",
+      "Hora",
+      "Tela / Color",
+      "Acción",
+      "Cantidad (Rollos)",
+      "Quién retiró",
+  ])
+  df.to_excel(ARCHIVO_HISTORIAL, index=False)
+  return df
 
 
 def registrar_movimiento(tela, accion, cantidad, persona):
