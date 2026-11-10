@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import pandas as pd
+import pytz
 import streamlit as st
 
 st.set_page_config(
@@ -33,48 +34,70 @@ ARCHIVO_HISTORIAL = "historial_movimientos.xlsx"
 
 
 def cargar_inventario():
+  colores_reales = [
+      "Negro",
+      "Blanco",
+      "Beige",
+      "Hueso",
+      "Marrón Oscuro",
+      "Marrón Claro (Caramelo)",
+      "Azul Marino",
+      "Gris Oscuro (Plomo)",
+      "Gris Claro",
+      "Vino / Bordó",
+      "Rojo",
+      "Verde Militar",
+      "Azul Rey",
+      "Amarillo",
+      "Naranja",
+      "Rosa / Rosado",
+      "Turquesa",
+      "Lila / Morado",
+      "Melón",
+      "Camel",
+  ]
+
+  # Si el archivo existe, validamos que tenga todas las columnas obligatorias
   if os.path.exists(ARCHIVO_INVENTARIO):
-    df = pd.read_excel(ARCHIVO_INVENTARIO)
-    df["Rollos"] = df["Rollos"].astype(float)
-    df["Metros Stock"] = df["Metros Stock"].astype(float)
-    df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
-    return df
-  else:
-    colores_reales = [
-        "Negro",
-        "Blanco",
-        "Beige",
-        "Hueso",
-        "Marrón Oscuro",
-        "Marrón Claro (Caramelo)",
-        "Azul Marino",
-        "Gris Oscuro (Plomo)",
-        "Gris Claro",
-        "Vino / Bordó",
-        "Rojo",
-        "Verde Militar",
-        "Azul Rey",
-        "Amarillo",
-        "Naranja",
-        "Rosa / Rosado",
-        "Turquesa",
-        "Lila / Morado",
-        "Melón",
-        "Camel",
-    ]
-    datos = []
-    for i, color in enumerate(colores_reales, start=1):
-      datos.append({
-          "ID": i,
-          "Tipo de Tela": "Cuerina",
-          "Color": color,
-          "Rollos": 1.0,
-          "Metros Stock": 50.0,
-          "Precio (Bs)": 30.0,
-      })
-    df = pd.DataFrame(datos)
-    df.to_excel(ARCHIVO_INVENTARIO, index=False)
-    return df
+    try:
+      df = pd.read_excel(ARCHIVO_INVENTARIO)
+      columnas_necesarias = [
+          "ID",
+          "Tipo de Tela",
+          "Color",
+          "Rollos",
+          "Metros Stock",
+          "Precio (Bs)",
+      ]
+      for col in columnas_necesarias:
+        if col not in df.columns:
+          raise ValueError(f"Falta la columna {col}")
+
+      df["Rollos"] = df["Rollos"].astype(float)
+      df["Metros Stock"] = df["Metros Stock"].astype(float)
+      df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
+      return df
+    except Exception:
+      # Si hay error o falta una columna, eliminamos el archivo corrupto/antiguo
+      try:
+        os.remove(ARCHIVO_INVENTARIO)
+      except Exception:
+        pass
+
+  # Crear inventario inicial limpio por defecto
+  datos = []
+  for i, color in enumerate(colores_reales, start=1):
+    datos.append({
+        "ID": i,
+        "Tipo de Tela": "Cuerina",
+        "Color": color,
+        "Rollos": 1.0,
+        "Metros Stock": 50.0,
+        "Precio (Bs)": 30.0,
+    })
+  df = pd.DataFrame(datos)
+  df.to_excel(ARCHIVO_INVENTARIO, index=False)
+  return df
 
 
 def guardar_inventario(df):
@@ -83,26 +106,34 @@ def guardar_inventario(df):
 
 def cargar_historial():
   if os.path.exists(ARCHIVO_HISTORIAL):
-    return pd.read_excel(ARCHIVO_HISTORIAL)
-  else:
-    df = pd.DataFrame(columns=[
-        "Fecha",
-        "Hora",
-        "Tela / Color",
-        "Acción",
-        "Cantidad (Rollos)",
-        "Quién retiró",
-    ])
-    df.to_excel(ARCHIVO_HISTORIAL, index=False)
-    return df
+    try:
+      return pd.read_excel(ARCHIVO_HISTORIAL)
+    except Exception:
+      try:
+        os.remove(ARCHIVO_HISTORIAL)
+      except Exception:
+        pass
+
+  df = pd.DataFrame(columns=[
+      "Fecha",
+      "Hora",
+      "Tela / Color",
+      "Acción",
+      "Cantidad (Rollos)",
+      "Quién retiró",
+  ])
+  df.to_excel(ARCHIVO_HISTORIAL, index=False)
+  return df
 
 
 def registrar_movimiento(tela, accion, cantidad, persona):
   df_h = cargar_historial()
-  now = datetime.now()
+  tz_bolivia = pytz.timezone("America/La_Paz")
+  now_bolivia = datetime.now(tz_bolivia)
+
   nuevo = pd.DataFrame([{
-      "Fecha": now.strftime("%Y-%m-%d"),
-      "Hora": now.strftime("%H:%M:%S"),
+      "Fecha": now_bolivia.strftime("%Y-%m-%d"),
+      "Hora": now_bolivia.strftime("%H:%M:%S"),
       "Tela / Color": tela,
       "Acción": accion,
       "Cantidad (Rollos)": cantidad,
@@ -252,8 +283,8 @@ with tab2:
 with tab3:
   st.subheader("📅 Cuaderno de Notas y Calendario de Movimientos")
   st.markdown(
-      "Aquí queda anotada automáticamente la fecha, hora exacta, qué tela se"
-      " llevó y quién la sacó."
+      "Aquí queda anotada automáticamente la fecha, hora exacta de Bolivia, qué"
+      " tela se llevó y quién la sacó."
   )
 
   df_historial = cargar_historial()
