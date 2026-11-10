@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import pandas as pd
+import pytz
 import streamlit as st
 
 st.set_page_config(
@@ -59,7 +60,6 @@ def cargar_inventario():
   if os.path.exists(ARCHIVO_INVENTARIO):
     try:
       df = pd.read_excel(ARCHIVO_INVENTARIO)
-      # Verificar que existan las columnas obligatorias, si no, regenerar
       columnas_necesarias = [
           "ID",
           "Tipo de Tela",
@@ -77,10 +77,8 @@ def cargar_inventario():
       df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
       return df
     except Exception:
-      # Si el Excel antiguo está corrupto o le faltan columnas, lo recreamos limpio
       pass
 
-  # Crear inventario inicial por defecto
   datos = []
   for i, color in enumerate(colores_reales, start=1):
     datos.append({
@@ -121,10 +119,13 @@ def cargar_historial():
 
 def registrar_movimiento(tela, accion, cantidad, persona):
   df_h = cargar_historial()
-  now = datetime.now()
+  # Obtener la hora exacta de Bolivia (La Paz)
+  tz_bolivia = pytz.timezone("America/La_Paz")
+  now_bolivia = datetime.now(tz_bolivia)
+
   nuevo = pd.DataFrame([{
-      "Fecha": now.strftime("%Y-%m-%d"),
-      "Hora": now.strftime("%H:%M:%S"),
+      "Fecha": now_bolivia.strftime("%Y-%m-%d"),
+      "Hora": now_bolivia.strftime("%H:%M:%S"),
       "Tela / Color": tela,
       "Acción": accion,
       "Cantidad (Rollos)": cantidad,
@@ -274,8 +275,8 @@ with tab2:
 with tab3:
   st.subheader("📅 Cuaderno de Notas y Calendario de Movimientos")
   st.markdown(
-      "Aquí queda anotada automáticamente la fecha, hora exacta, qué tela se"
-      " llevó y quién la sacó."
+      "Aquí queda anotada automáticamente la fecha, hora exacta de Bolivia, qué"
+      " tela se llevó y quién la sacó."
   )
 
   df_historial = cargar_historial()
