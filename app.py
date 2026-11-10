@@ -57,7 +57,6 @@ def cargar_inventario():
       "Camel",
   ]
 
-  # Si el archivo existe, validamos que tenga todas las columnas obligatorias
   if os.path.exists(ARCHIVO_INVENTARIO):
     try:
       df = pd.read_excel(ARCHIVO_INVENTARIO)
@@ -78,13 +77,11 @@ def cargar_inventario():
       df["Precio (Bs)"] = df["Precio (Bs)"].astype(float)
       return df
     except Exception:
-      # Si hay error o falta una columna, eliminamos el archivo corrupto/antiguo
       try:
         os.remove(ARCHIVO_INVENTARIO)
       except Exception:
         pass
 
-  # Crear inventario inicial limpio por defecto
   datos = []
   for i, color in enumerate(colores_reales, start=1):
     datos.append({
@@ -153,10 +150,11 @@ st.markdown(
 )
 st.markdown("---")
 
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📦 Stock Actual",
     "📝 Registrar Salida (Anotar)",
     "📅 Historial y Notas por Fecha",
+    "⚙️ Modificar Nombres de Telas",
 ])
 
 with tab1:
@@ -169,6 +167,17 @@ with tab1:
   c1.metric("Total Rollos Almacenados", f"{total_rollos:.1f} rollos")
   c2.metric("Metros Totales en Stock", f"{total_metros:.1f} mts")
   st.markdown("---")
+
+  # Alertas de stock bajo
+  bajos = st.session_state.inventario[
+      st.session_state.inventario["Rollos"] < 2.0
+  ]
+  if not bajos.empty:
+    colores_bajos = ", ".join(bajos["Color"].tolist())
+    st.warning(
+        f"⚠️ **Atención:** Los siguientes colores tienen menos de 2 rollos en"
+        f" stock: {colores_bajos}"
+    )
 
   for index, row in st.session_state.inventario.iterrows():
     with st.container():
@@ -282,16 +291,91 @@ with tab2:
 
 with tab3:
   st.subheader("📅 Cuaderno de Notas y Calendario de Movimientos")
+  df_historial = cargar_historial()
+
+  # Resumen de ingresos estimados
+  if not df_historial.empty:
+    salidas_ventas = df_historial[
+        df_historial["Acción"].str.contains("Salida|nota", case=False, na=False)
+    ]
+    total_rollos_salidos = (
+        salidas_ventas["Cantidad (Rollos)"].sum()
+        if not salidas_ventas.empty
+        else 0
+    )
+    precio_promedio = 30.0  # Referencia por metro
+    ingreso_estimado = total_rollos_salidos * 50.0 * precio_promedio
+    st.info(
+        f"💵 **Resumen Financiero:** Salidas registradas: {total_rollos_salidos}"
+        f" rollos (~{total_rollos_salidos * 50} metros). Ingreso estimado en Bs:"
+        f" {ingreso_estimado:,.2f} Bs"
+    )
+
+  # Buscador en historial
+  busqueda = st.text_input(
+      "🔍 Buscar en el historial (por color, cliente o nota)"
+  )
+  if not df_historial.empty:
+    df_mostrar = df_historial.iloc[::-1]
+    if busqueda:
+      df_mostrar = df_mostrar[
+          df_mostrar.astype(str)
+          .apply(lambda x: x.str.contains(busqueda, case=False))
+          .any(axis=1)
+      ]
+    st.dataframe(df_mostrar, use_container_width=True)
+
+    # Botón para descargar historial
+    csv = df_historial.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "📥 Descargar Historial en CSV",
+        csv,
+        "historial_movimientos.csv",
+        "text/csv",
+        key="download-csv",
+    )
+  else:
+    st.info("Aún no hay movimientos registrados.")
+
+with tab4:
+  st.subheader("⚙️ Corregir Nombre o Precio de una Tela")
   st.markdown(
-      "Aquí queda anotada automáticamente la fecha, hora exacta de Bolivia, qué"
-      " tela se llevó y quién la sacó."
+      "Si escribiste mal algún color o deseas actualizar su precio, selecciónalo"
+      " aquí debajo:"
   )
 
-  df_historial = cargar_historial()
-  if df_historial.empty:
-    st.info("Aún no hay movimientos registrados.")
-  else:
-    st.dataframe(df_historial.iloc[::-1], use_container_width=True)
+  with st.form("form_editar"):
+    colores_editar = st.session_state.inventario["Color"].tolist()
+    color_sel = st.selectbox(
+        "Selecciona el color que deseas corregir", colores_editar
+    )
+
+    idx_edit = st.session_state.inventario[
+        st.session_state.inventario["Color"] == color_sel
+    ].index[0]
+    col_actual = st.session_state.inventario.at[idx_edit, "Color"]
+    precio_actual = float(
+        st.session_state.inventario.at[idx_edit, "Precio (Bs)"]
+    )
+
+    nuevo_nombre_color = st.text_input(
+        "Nuevo nombre para el color", value=col_actual
+    )
+    nuevo_precio = st.number_input(
+        "Precio por metro (Bs)", min_value=0.0, value=precio_actual, step=0.5
+    )
+
+    btn_actualizar = st.form_submit_button("Guardar Cambios")
+
+    if btn_actualizar:
+      if nuevo_nombre_color:
+        st.session_state.inventario.at[idx_edit, "Color"] = nuevo_nombre_color
+        st.session_state.inventario.at[idx_edit, "Precio (Bs)"] = nuevo_precio
+        guardar_inventario(st.session_state.inventario)
+        st.success(f"¡Actualizado correctamente a '{nuevo_nombre_color}'!")
+        st.rerun()
+      else:
+        st.warning("El nombre del color no puede estar vacío.")
 
 st.sidebar.header("✨ Agregar Nueva Tela")
 with st.sidebar.form("form_nueva_tela", clear_on_submit=True):
