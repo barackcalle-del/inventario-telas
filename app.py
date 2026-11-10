@@ -293,7 +293,6 @@ with tab3:
   st.subheader("📅 Cuaderno de Notas y Calendario de Movimientos")
   df_historial = cargar_historial()
 
-  # Resumen de ingresos estimados
   if not df_historial.empty:
     salidas_ventas = df_historial[
         df_historial["Acción"].str.contains("Salida|nota", case=False, na=False)
@@ -303,7 +302,7 @@ with tab3:
         if not salidas_ventas.empty
         else 0
     )
-    precio_promedio = 30.0  # Referencia por metro
+    precio_promedio = 30.0
     ingreso_estimado = total_rollos_salidos * 50.0 * precio_promedio
     st.info(
         f"💵 **Resumen Financiero:** Salidas registradas: {total_rollos_salidos}"
@@ -311,7 +310,6 @@ with tab3:
         f" {ingreso_estimado:,.2f} Bs"
     )
 
-  # Buscador en historial
   busqueda = st.text_input(
       "🔍 Buscar en el historial (por color, cliente o nota)"
   )
@@ -325,7 +323,6 @@ with tab3:
       ]
     st.dataframe(df_mostrar, use_container_width=True)
 
-    # Botón para descargar historial
     csv = df_historial.to_csv(index=False).encode("utf-8")
     st.download_button(
         "📥 Descargar Historial en CSV",
